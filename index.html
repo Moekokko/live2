@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>My Live Schedule</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- FullCalendar -->
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #f5f5f5;
+      --surface: #ffffff;
+      --text-high: #2d2d2d;
+      --text-low: #6d6d6d;
+      --border: #d9d9d9;
+      --accent: #4a4a4a;
+      --radius: 8px;
+      --shadow: rgba(0,0,0,0.04);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text-high);
+      min-height: 100vh;
+    }
+    header { background: var(--surface); padding: 1rem 2rem; box-shadow: 0 2px 4px var(--shadow); }
+    header .logo { font-size: 1.5rem; font-weight: 600; color: var(--accent); }
+    .container { max-width: 900px; margin: 2rem auto; background: var(--surface); border-radius: var(--radius); box-shadow: 0 2px 8px var(--shadow); padding: 2rem; }
+    .tabs { display: flex; gap: 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+    .tabs button { flex: 1; padding: .75rem 0; background: none; border: none; border-bottom: 2px solid transparent; font-size: 1rem; font-weight: 500; color: var(--text-low); cursor: pointer; transition: .2s; }
+    .tabs button.active { color: var(--accent); border-color: var(--accent); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .form-group { margin-top: 1rem; }
+    .form-group label { display: block; font-size: .9rem; color: var(--text-low); margin-bottom: .3rem; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: .75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text-high); font-size: .95rem; transition: border-color .2s; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); outline: none; }
+    .save-btn { margin-top: 1.5rem; padding: .75rem 1rem; width: 100%; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-weight: 500; cursor: pointer; transition: background .2s; }
+    .save-btn:hover { background: #333; }
+    #scheduleList { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 1rem; margin-top: 1.5rem; }
+    .schedule-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 2px 8px var(--shadow); padding: 1rem; display: flex; flex-direction: column; justify-content: space-between; }
+    .schedule-card .info { font-size: .9rem; color: var(--text-low); margin-bottom: .5rem; }
+    .schedule-card .actions { display: flex; gap: .5rem; margin-top: 1rem; }
+    .schedule-card .actions button { flex: 1; padding: .5rem; border: 1px solid var(--border); background: none; border-radius: var(--radius); cursor: pointer; font-size: .9rem; transition: background .2s; }
+    .schedule-card .actions button:hover { background: var(--border); }
+    .toggle-switch { position: relative; display: inline-block; width: 36px; height: 18px; margin-left: .5rem; vertical-align: middle; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--border); border-radius: 18px; transition: .3s; }
+    .slider::before { content: ''; position: absolute; width: 14px; height: 14px; left: 2px; bottom: 2px; background: #fff; border-radius: 50%; transition: .3s; }
+    .toggle-switch input:checked + .slider { background: var(--accent); }
+    .toggle-switch input:checked + .slider::before { transform: translateX(18px); }
+    #calendarContainer { margin-top: 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: .5rem; box-shadow: 0 2px 8px var(--shadow); }
+    @media(max-width:600px){ .tabs { flex-direction: column; } #scheduleList { display: block; } }
+  </style>
+</head>
+<body>
+  <header><div class="logo">My Live Schedule</div></header>
+  <div class="container">
+    <div class="tabs">
+      <button class="active" data-tab="form">登録</button>
+      <button data-tab="list">一覧</button>
+      <button data-tab="calendar">カレンダー</button>
+    </div>
+
+    <!-- 登録フォーム -->
+    <div id="form" class="tab-content active">
+      <!-- 機能① 応募管理 -->
+      <div class="form-group"><label>アーティスト名</label><input id="artist" placeholder="例：Band Tokyo"></div>
+      <div class="form-group"><label>応募段階</label><select id="phase"><option>ファンクラブ先行</option><option>プレイガイド先行</option><option>一般発売</option></select></div>
+      <div class="form-group"><label>応募期限</label><input type="date" id="applyDeadline"></div>
+      <div class="form-group"><label>チケットサイト</label><input id="site" placeholder="e+ / 楽天"></div>
+      <div class="form-group"><label>当落発表日時</label><input type="datetime-local" id="lotteryDate"></div>
+      <div class="form-group"><label>支払い期限</label><input type="date" id="paymentDeadline"></div>
+      <!-- 複数日程選択 -->
+      <div class="form-group"><label>ライブ日程</label><div id="datePicker"></div><div class="selected-dates" id="selectedDates"></div></div>
+      <!-- 機能② ライブ詳細 -->
+      <div class="form-group"><label>会場</label><input id="venue" placeholder="東京ドーム"></div>
+      <div class="form-group"><label>最寄駅</label><input id="station" placeholder="水道橋"></div>
+      <div class="form-group"><label>券種</label><input id="seatType" placeholder="指定席"></div>
+      <div class="form-group"><label>有給要否</label><select id="holidayNeeded"><option value="不要">不要</option><option value="要">要</option></select></div>
+      <!-- 機能③ グッズ管理 -->
+      <div class="form-group"><label>グッズ販売種別</label><select id="goodsType"><option>先行物販</option><option>事後通販</option><option>受注生産</option></select></div>
+      <div class="form-group"><label>販売期間</label><input type="date" id="goodsStart"><br><input type="date" id="goodsEnd" style="margin-top:.5rem"></div>
+      <!-- イベントカラー選択 -->
+      <div class="form-group"><label>予定カラー</label><input type="color" id="eventColor" value="#4a4a4a"></div>
+      <button class="save-btn" onclick="saveLive()">保存</button>
+    </div>
+
+    <!-- 一覧 -->
+    <div id="list" class="tab-content">
+      <div class="form-group"><label>検索</label><input type="text" id="searchInput" placeholder="アーティスト or 日付"></div>
+      <div id="scheduleList"></div>
+    </div>
+
+    <!-- カレンダー -->
+    <div id="calendar" class="tab-content"><div id="calendarContainer"></div></div>
+  </div>
+
+  <script>
+    // タブ切替
+    document.querySelectorAll('.tabs button').forEach(btn=>btn.addEventListener('click',()=>{
+      document.querySelectorAll('.tabs button, .tab-content').forEach(el=>el.classList.remove('active'));
+      btn.classList.add('active'); document.getElementById(btn.dataset.tab).classList.add('active');
+      if(btn.dataset.tab==='calendar'){ calendar.render(); updateCalendarEvents(); }
+    }));
+
+    const STORAGE_KEY='liveSchedules';
+    const getStored=()=>JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+    const filterStored=()=>{const q=document.getElementById('searchInput').value.trim().toLowerCase();return q?getStored().filter(s=>s.artist.toLowerCase().includes(q)||s.dates.some(d=>d.includes(q))):getStored();};
+
+    let selectedDates=[];
+    const datePicker=new FullCalendar.Calendar(document.getElementById('datePicker'),{
+      initialView:'dayGridMonth',locale:'ja',height:300,
+      dateClick:info=>{const d=info.dateStr,idx=selectedDates.indexOf(d);idx>-1?selectedDates.splice(idx,1):selectedDates.push(d);
+        document.getElementById('selectedDates').innerHTML=selectedDates.map(d=>`<span class="chip">${d}</span>`).join('');
+        datePicker.getEvents().forEach(e=>e.remove());
+        selectedDates.forEach(d=>datePicker.addEvent({start:d,allDay:true,display:'background',backgroundColor:document.getElementById('eventColor').value}));
+      }
+    }); datePicker.render();
+
+    function saveLive(){
+      if(!selectedDates.length){alert('日程を選択');return;}
+      const data={
+        id:Date.now(),
+        artist:document.getElementById('artist').value,
+        phase:document.getElementById('phase').value,
+        applyDeadline:document.getElementById('applyDeadline').value,
+        dates:[...selectedDates],
+        site:document.getElementById('site').value,
+        lotteryDate:document.getElementById('lotteryDate').value,
+        paymentDeadline:document.getElementById('paymentDeadline').value,
+        venue:document.getElementById('venue').value,
+        station:document.getElementById('station').value,
+        seatType:document.getElementById('seatType').value,
+        holidayNeeded:document.getElementById('holidayNeeded').value,
+        goodsType:document.getElementById('goodsType').value,
+        goodsStart:document.getElementById('goodsStart').value,
+        goodsEnd:document.getElementById('goodsEnd').value,
+        color:document.getElementById('eventColor').value,
+        status:{applied:false,won:false,paid:false}
+      };
+      const arr=getStored();arr.push(data);localStorage.setItem(STORAGE_KEY,JSON.stringify(arr));
+      selectedDates=[];document.getElementById('selectedDates').innerHTML='';datePicker.getEvents().forEach(e=>e.remove());
+      renderList();updateCalendarEvents();document.querySelector('.tabs button[data-tab="list"]').click();
+    }
+
+    function renderList(){const c=document.getElementById('scheduleList');c.innerHTML='';
+      filterStored().forEach(s=>{const card=document.createElement('div');card.className='schedule-card';
+        card.innerHTML=`<div><strong>${s.artist}</strong> (${s.phase})</div>`+
+          s.dates.map(d=>`<div class="info">日程: ${d}</div>`).join('')+
+          `<div class="info">当落: <span class="toggle-switch"><input type="checkbox" onchange="toggleStatus(${s.id},'won')" ${s.status.won?'checked':''}><span class="slider"></span></span></div>`+
+          `<div class="info">会場: ${s.venue} (最寄: ${s.station})</div>`+
+          `<div class="info">券種: ${s.seatType} / 有給: ${s.holidayNeeded}</div>`+
+          `<div class="info">グッズ: ${s.goodsType} (${s.goodsStart}〜${s.goodsEnd})</div>`+
+          `<div class="actions"><button onclick="startEdit(${s.id})">編集</button><button onclick="deleteSchedule(${s.id})">削除</button></div>`;
+        c.appendChild(card);
+      });
+    }
+
+    function toggleStatus(id,key){const arr=getStored(),i=arr.findIndex(s=>s.id===id);arr[i].status[key]=!arr[i].status[key];localStorage.setItem(STORAGE_KEY,JSON.stringify(arr));renderList();updateCalendarEvents();}
+
+    let editingId=null;function startEdit(id){const arr=getStored(),s=arr.find(x=>x.id===id);editingId=id;
+      document.getElementById('artist').value=s.artist;document.getElementById('phase').value=s.phase;
+      document.getElementById('applyDeadline').value=s.applyDeadline;selectedDates=[...s.dates];
+      document.getElementById('selectedDates').innerHTML=selectedDates.map(d=>`<span class="chip">${d}</span>`).join('');
+      datePicker.getEvents().forEach(e=>e.remove());selectedDates.forEach(d=>datePicker.addEvent({start:d,allDay:true,display:'background',backgroundColor:s.color}));
+      document.getElementById('site').value=s.site;document.getElementById('lotteryDate').value=s.lotteryDate;
+      document.getElementById('paymentDeadline').value=s.paymentDeadline;document.getElementById('venue').value=s.venue;
+      document.getElementById('station').value=s.station;document.getElementById('seatType').value=s.seatType;
+      document.getElementById('holidayNeeded').value=s.holidayNeeded;document.getElementById('goodsType').value=s.goodsType;
+      document.getElementById('goodsStart').value=s.goodsStart;document.getElementById('goodsEnd').value=s.goodsEnd;
+      document.getElementById('eventColor').value=s.color;
+      document.querySelector('.save-btn').textContent='更新';document.querySelector('.tabs button[data-tab="form"]').click(); }
+
+    function deleteSchedule(id){if(!confirm('削除しますか？'))return;const arr=getStored().filter(s=>s.id!==id);localStorage.setItem(STORAGE_KEY,JSON.stringify(arr));renderList();updateCalendarEvents();}
+
+    const calendar=new FullCalendar.Calendar(document.getElementById('calendarContainer'),{initialView:'dayGridMonth',locale:'ja',height:'auto'});
+    calendar.render();
+    function updateCalendarEvents(){const evts=[];filterStored().forEach(s=>{if(s.applyDeadline)evts.push({title:`応募: ${s.artist}`,start:s.applyDeadline,color:s.color});if(s.lotteryDate)evts.push({title:`当落: ${s.artist}`,start:s.lotteryDate,color:s.color});if(s.paymentDeadline)evts.push({title:`入金: ${s.artist}`,start:s.paymentDeadline,color:s.color});s.dates.forEach(d=>{if(s.status.won)evts.push({title:`ライブ: ${s.artist}`,start:d,color:s.color});});if(s.goodsStart&&s.goodsEnd)evts.push({title:`${s.artist} ${s.goodsType}`,start:s.goodsStart,end:s.goodsEnd,color:s.color});});calendar.removeAllEvents();calendar.addEventSource(evts);}
+
+    document.getElementById('searchInput').addEventListener('input',()=>{renderList();updateCalendarEvents();});
+    window.addEventListener('DOMContentLoaded',()=>{renderList();updateCalendarEvents();});
+  </script>
+</body>
+</html>
